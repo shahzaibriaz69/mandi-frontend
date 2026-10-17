@@ -1,41 +1,47 @@
-import React, { useState } from 'react';
-import Layout from './components/Layout';
-import SimpleSaleBilling from './components/SimpleSaleBilling';
+﻿import React, { useMemo, useState } from 'react';
+
+const emptyForm = { name: '', category: 'Sabzi', unit: 'Kg', price: '', stock: '' };
+const money = (value) => `Rs ${Number(value || 0).toLocaleString('en-PK')}`;
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('billing');
+  const [profile, setProfile] = useState(() => JSON.parse(localStorage.getItem('mandi-profile') || 'null'));
+  const [items, setItems] = useState(() => JSON.parse(localStorage.getItem('mandi-items') || '[]'));
+  const [tab, setTab] = useState('dashboard');
+  const [form, setForm] = useState(emptyForm);
+  const [editing, setEditing] = useState(null);
+  const [query, setQuery] = useState('');
+  const [notice, setNotice] = useState('');
 
-  return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {activeTab === 'billing' && <SimpleSaleBilling />}
-      
-      {activeTab === 'dashboard' && (
-        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Dashboard Summary</h2>
-          <p className="text-gray-600">Aapka Mandi overview aur quick stats yahan show honge.</p>
-        </div>
-      )}
+  const persistItems = (next) => { setItems(next); localStorage.setItem('mandi-items', JSON.stringify(next)); };
+  const filtered = useMemo(() => items.filter((item) => item.name.toLowerCase().includes(query.toLowerCase()) || item.category.toLowerCase().includes(query.toLowerCase())), [items, query]);
+  const startEdit = (item) => { setEditing(item.id); setForm({ name: item.name, category: item.category, unit: item.unit, price: item.price, stock: item.stock }); };
+  const saveItem = (event) => {
+    event.preventDefault();
+    if (!form.name.trim() || Number(form.price) < 0 || Number(form.stock) < 0) return;
+    const row = { ...form, name: form.name.trim(), price: Number(form.price), stock: Number(form.stock), id: editing || Date.now() };
+    persistItems(editing ? items.map((item) => item.id === editing ? row : item) : [row, ...items]);
+    setForm(emptyForm); setEditing(null); setNotice(editing ? 'Item update ho gaya.' : 'Naya item add ho gaya.');
+    window.setTimeout(() => setNotice(''), 2500);
+  };
+  const removeItem = (id) => { if (window.confirm('Kya aap is item ko delete karna chahte hain?')) persistItems(items.filter((item) => item.id !== id)); };
+  const register = (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    const next = { name: data.name.trim(), mandi: data.mandi.trim(), phone: data.phone.trim() };
+    localStorage.setItem('mandi-profile', JSON.stringify(next)); setProfile(next);
+  };
 
-      {activeTab === 'parties' && (
-        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Parties Management</h2>
-          <p className="text-gray-600">Customers aur suppliers ki list yahan manage hogi.</p>
-        </div>
-      )}
+  if (!profile) return <main className="auth-shell"><section className="auth-story"><div className="brand"><span className="brand-mark">M</span><span>Mandi<span className="brand-light">Saathi</span></span></div><div className="story-copy"><span className="eyebrow">MANDI KA HISAB, AB ASAN</span><h1>Apni mandi ka kaam<br/>rakhein <em>munazzam.</em></h1><p>Items, rates aur stock ka record ek hi jagah. Shuru karne ke liye apna account banayein.</p><div className="story-points"><span>✓ &nbsp; Asaan item entry</span><span>✓ &nbsp; Roz ka saaf hisaab</span></div></div><div className="auth-foot">Aapki mandi, aapka hisaab.</div></section><section className="auth-form-wrap"><form className="auth-form" onSubmit={register}><span className="eyebrow">SHURU KAREIN</span><h2>Apna account banayein</h2><p className="muted">Mandi ki basic maloomat darj karein.</p><label>Aapka naam<input name="name" placeholder="Misal: Ahmed Ali" required autoComplete="name"/></label><label>Mandi / dukaan ka naam<input name="mandi" placeholder="Misal: New Sabzi Mandi" required/></label><label>Mobile number<input name="phone" placeholder="03XX XXXXXXX" required inputMode="tel"/></label><button className="primary full" type="submit">Dashboard kholein <span>→</span></button><p className="form-note">Aapki maloomat isi device par save rahegi.</p></form></section></main>;
 
-      {activeTab === 'items' && (
-        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Items Management</h2>
-          <p className="text-gray-600">Phal aur sabziyon ke items yahan add honge.</p>
-        </div>
-      )}
-
-      {activeTab === 'reports' && (
-        <div className="p-6 bg-white rounded-lg shadow border border-gray-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Reports & Ledgers</h2>
-          <p className="text-gray-600">Daily commission aur sales ki reports yahan generate hongi.</p>
-        </div>
-      )}
-    </Layout>
-  );
+  return <div className="app-shell"><aside className="sidebar"><div className="brand"><span className="brand-mark">M</span><span>Mandi<span className="brand-light">Saathi</span></span></div><div className="side-label">WORKSPACE</div><nav>{[['dashboard','▦','Dashboard'],['items','▤','Items entry'],['billing','↗','Sale & billing'],['parties','♧','Parties / Khata'],['reports','▥','Reports']].map(([key,icon,label])=><button key={key} className={`nav-link ${tab===key?'selected':''}`} onClick={()=>setTab(key)}><span className="nav-icon">{icon}</span>{label}{key==='items'&&<span className="nav-count">{items.length}</span>}</button>)}</nav><div className="sidebar-bottom"><div className="avatar">{profile.name.slice(0,1).toUpperCase()}</div><div className="profile-small"><strong>{profile.name}</strong><span>{profile.mandi}</span></div><button className="logout" title="Sign out" onClick={()=>{localStorage.removeItem('mandi-profile');setProfile(null)}}>↗</button></div></aside>
+  <main className="main"><header className="topbar"><div className="breadcrumbs">Mandi Saathi <span>/</span> <strong>{tab==='items'?'Items entry':tab==='dashboard'?'Dashboard':tab==='billing'?'Sale & billing':tab==='parties'?'Parties / Khata':'Reports'}</strong></div><div className="today"><span className="status-dot"/> Mandi record <span className="today-divider"/> {new Intl.DateTimeFormat('en-PK',{day:'numeric',month:'short',year:'numeric'}).format(new Date())}</div></header>
+  {tab==='dashboard'&&<section className="page"><div className="welcome-row"><div><div className="eyebrow">MANDI OVERVIEW</div><h1>Assalam-o-alaikum, {profile.name.split(' ')[0]} <span className="wave">✳</span></h1><p className="muted">{profile.mandi} ka aaj ka kaam yahan se dekhein.</p></div><button className="primary" onClick={()=>setTab('items')}>＋ &nbsp;Naya item add karein</button></div><div className="stats-grid"><article className="stat-card"><div className="stat-top"><span>Total items</span><span className="stat-symbol green">▤</span></div><strong>{items.length}</strong><small>Items aapke record mein</small></article><article className="stat-card"><div className="stat-top"><span>Stock quantity</span><span className="stat-symbol blue">◷</span></div><strong>{items.reduce((total,item)=>total+Number(item.stock),0).toLocaleString('en-PK')} <small className="inline-small">units</small></strong><small>Darj ki hui kul quantity</small></article><article className="stat-card"><div className="stat-top"><span>Item categories</span><span className="stat-symbol orange">◇</span></div><strong>{new Set(items.map((item)=>item.category)).size}</strong><small>Alag alag qisam</small></article></div><div className="section-heading"><div><h2>Recent items</h2><p className="muted">Aapke record mein shamil mandi items</p></div><button className="text-button" onClick={()=>setTab('items')}>Tamam items dekhein →</button></div><ItemTable items={items.slice(0,5)} onEdit={startEdit} onDelete={removeItem}/><div className="tip"><span>✦</span><div><strong>Apna item record mukammal karein</strong><p>Items entry mein ja kar apne maal ke naam, rate aur stock ki tafseel add karein.</p></div><button className="text-button" onClick={()=>setTab('items')}>Items entry kholein →</button></div></section>}
+  {tab==='items'&&<section className="page"><div className="welcome-row item-page-title"><div><div className="eyebrow">INVENTORY</div><h1>Items entry</h1><p className="muted">Mandi ke items, rate aur stock manually darj karein.</p></div><span className="item-total"><strong>{items.length}</strong> items</span></div><div className="entry-card"><div className="card-heading"><div className="entry-icon">＋</div><div><h2>{editing?'Item edit karein':'Naya item darj karein'}</h2><p>Item ki maloomat neeche fill karein.</p></div></div><form className="entry-form" onSubmit={saveItem}><label>Item ka naam<input value={form.name} onChange={(e)=>setForm({...form,name:e.target.value})} placeholder="Misal: Aloo" required/></label><label>Category<select value={form.category} onChange={(e)=>setForm({...form,category:e.target.value})}><option>Sabzi</option><option>Phal</option><option>Ghallah</option><option>Masala</option><option>Dusra</option></select></label><label>Unit<select value={form.unit} onChange={(e)=>setForm({...form,unit:e.target.value})}><option>Kg</option><option>Mann</option><option>Bori</option><option>Crate</option><option>Dozen</option><option>Piece</option></select></label><label>Rate (Rs)<input type="number" min="0" step="any" value={form.price} onChange={(e)=>setForm({...form,price:e.target.value})} placeholder="0" required/></label><label>Stock quantity<input type="number" min="0" step="any" value={form.stock} onChange={(e)=>setForm({...form,stock:e.target.value})} placeholder="0" required/></label><div className="form-actions">{editing&&<button type="button" className="secondary" onClick={()=>{setEditing(null);setForm(emptyForm)}}>Cancel</button>}<button className="primary" type="submit">{editing?'Changes save karein':'＋ Item save karein'}</button></div></form></div><div className="section-heading items-heading"><div><h2>Aapke items</h2><p className="muted">Rate aur stock ki tafseel</p></div><div className="search-box"><span>⌕</span><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Item dhoondein..."/></div></div>{notice&&<div className="notice">✓ &nbsp;{notice}</div>}<ItemTable items={filtered} onEdit={startEdit} onDelete={removeItem}/></section>}
+  {tab!=='dashboard'&&tab!=='items'&&<section className="page"><div className="eyebrow">WORKSPACE</div><h1>{tab==='billing'?'Sale & billing':tab==='parties'?'Parties / Khata':'Reports'}</h1><p className="muted">Yeh page aglay marhalay mein tayyar hoga.</p><div className="placeholder-card"><span>✦</span><h2>Kaam jari hai</h2><p>Filhal dashboard aur items entry istemal kar sakte hain.</p><button className="primary" onClick={()=>setTab('items')}>Items entry par jayein →</button></div></section>}
+  </main></div>;
 }
+
+function ItemTable({items,onEdit,onDelete}){return <div className="table-card"><div className="table-scroll"><table><thead><tr><th>ITEM</th><th>CATEGORY</th><th>RATE</th><th>STOCK</th><th className="actions-head">ACTIONS</th></tr></thead><tbody>{items.length?items.map((item)=><tr key={item.id}><td><div className="product-cell"><span className="product-icon">{item.category==='Phal'?'◉':'◈'}</span><span><strong>{item.name}</strong><small>Per {item.unit}</small></span></div></td><td><span className="category-pill">{item.category}</span></td><td className="price-cell">{money(item.price)}</td><td>{item.stock} <span className="unit-label">{item.unit}</span></td><td className="actions"><button onClick={()=>onEdit(item)} aria-label={`Edit ${item.name}`}>Edit</button><button onClick={()=>onDelete(item.id)} aria-label={`Delete ${item.name}`}>Delete</button></td></tr>):<tr><td colSpan="5" className="empty-state">Koi item nahin mila. Upar form se naya item add karein.</td></tr>}</tbody></table></div></div>}
+
+
+
