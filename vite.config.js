@@ -7,4 +7,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    host: true, // ya '0.0.0.0' - Is se Vite sare network hosts par listen karega
+    allowedHosts: true,
+  },
 });
