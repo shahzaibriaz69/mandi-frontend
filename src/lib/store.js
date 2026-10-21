@@ -1,0 +1,10 @@
+import { useState } from 'react';
+export const readStore=(key,fallback=[])=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch{return fallback}};
+export const writeStore=(key,value)=>localStorage.setItem(key,JSON.stringify(value));
+export const amount=value=>parseFloat(String(value||0).replace(/,/g,''))||0;
+export const money=value=>'Rs '+Number(value||0).toLocaleString('en-PK');
+export const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+export const sameId=(a,b)=>String(a)===String(b);
+export const openingSigned=x=>amount(x?.opening)*(x?.openingType==='Cr.'||x?.openingType==='Cr'?-1:1);
+export const accountBalance=(id,parties,sales,receipts)=>openingSigned(parties.find(x=>sameId(x.id,id)))+sales.filter(x=>sameId(x.partyId,id)&&x.paymentType!=='Cash').reduce((s,x)=>s+amount(x.amount),0)-receipts.filter(x=>sameId(x.partyId,id)).reduce((s,x)=>s+amount(x.amount),0);
+export const useStore=key=>{const [value,setValue]=useState(()=>readStore(key));const save=next=>{setValue(next);writeStore(key,next)};return [value,save]};
